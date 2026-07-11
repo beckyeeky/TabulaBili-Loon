@@ -220,6 +220,27 @@ app.bilibili.com, app.biliapi.net, api.bilibili.com
 - gRPC/protobuf 推荐流（见 §8）
 - tab 级 mixed 隔离（Chrome 有 tabId；Loon 用全局计数）
 
+### 6.6 风控探针（`tabulabili-risk.js`，已实现）
+
+**动机：** 去身份后用户需要知道推荐接口是否被 `-352` / 空列表 / 业务错误；对齐 bili-webos DiagPanel 的 rcmd 探针思路，但只做被动观测。
+
+| 项 | 规格 |
+|----|------|
+| 类型 | `http-response`，`requires-body=true` |
+| 匹配 | 与清洗相同的 App `feed/index` + Web `.../rcmd` |
+| 改写 | **不改** body/headers，一律 `$done({})` |
+| 成功 | `code===0` 且 items/item 长度 > 0 → 只日志 |
+| 风控 | `code===-352` → 日志 + 可选通知 |
+| 空列表 | `code===0 && n===0` → 日志 + 可选通知 |
+| 其它 | 保留 code/items → 日志 + 可选通知 |
+| Argument | `risk_notify`（默认 true）、`risk_debug`（默认 false） |
+| 节流 | store `tabulabili_risk_last_notify` + `tabulabili_risk_last_code`；同类 30min 最多 1 次通知 |
+| 安全 | 通知/日志不输出 Cookie 明文 |
+
+**不是：** 完整诊断链（nav/playurl/图片代理）、主动 WBI 自签请求、账号全局封禁判定。
+
+**gzip/非 JSON：** 解析失败则 skip 并打 `no-json` 日志，不误报 -352。
+
 ---
 
 ## 7. 插件格式约定（对齐可莉/社区）
@@ -245,8 +266,9 @@ hostname = a, b, c
 
 - 段名用 **`[MitM]`**（社区常见；`[MITM]` 多数版本也能认，保持与可莉一致）
 - `script-path =` 等号两侧空格与社区一致
-- `requires-body = false`：我们不读 body
+- 清洗/采集：`requires-body = false`；风控探针：`requires-body = true`
 - 远程脚本必须 **public raw 可拉**
+- Argument：`mode` 给 request 脚本；`risk_notify`/`risk_debug` 给 response 探针
 
 Argument 需 Loon 新版本（文档曾写 build 733+）；过旧 Loon 可能看不到模式 UI，仍可读 store 默认 refresh。
 
@@ -286,9 +308,11 @@ Argument 需 Loon 新版本（文档曾写 build 733+）；过旧 Loon 可能看
 - 多个脚本改同一 URL 的 headers/url → 后写覆盖、行为未定义  
 - 可莉改 response，本插件改 request，一般可并存；异常时二分
 
-### 8.5 可能的增强（未做）
+### 8.5 可能的增强
 
-- [ ] 调试开关 Argument：命中时 `$notification.post` 一次  
+- [x] 风控探针：被动 response + 节流通知 + Argument 开关（`tabulabili-risk.js`）
+- [ ] 探针记录 HTTP 状态 / message / 耗时到 store（仍不弹窗）
+- [ ] `-352` 时自动提示切换 refresh / 不清自动改 mode
 - [ ] 热门接口替换模式（改 URL 到 popular，需验 App 响应 schema）  
 - [ ] gRPC feed 支持  
 - [ ] 更完整的 iOS appkey 表自动维护  
@@ -313,6 +337,10 @@ Argument 需 Loon 新版本（文档曾写 build 733+）；过旧 Loon 可能看
 | `web rcmd mode=` | Web Cookie 已洗 |
 | `fingerprint updated` | 指纹采集成功 |
 | `pass mode=origin` | 模式关闭，未清洗 |
+| `[TabulaBili][risk]` | 风控探针日志前缀 |
+| `App风控探针` / `Web风控探针` | response 脚本 tag |
+| `code=-352` | 本次推荐被风控 |
+| `throttled notify` | 通知被 30min 节流 |
 
 ### 9.2 从哪个域名搜
 
@@ -327,7 +355,7 @@ Argument 需 Loon 新版本（文档曾写 build 733+）；过旧 Loon 可能看
 |--------|------|------|
 | **请求头 Cookie** | ✅ | refresh 应近似仅 buvid；无 SESSDATA |
 | **请求 URL** | ✅ App | 无 `access_key`；有新 `sign` |
-| **响应体** | ❌ 不作成功判据 | 本插件不改 body（那是可莉思路） |
+| **响应体 code** | ✅ 风控 | 探针读 `code`/`item`；**不改** body |
 | **脚本日志** | ✅ | 最省事 |
 
 ### 9.4 操作顺序
@@ -396,12 +424,14 @@ curl -sI "https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scrip
         │                         写 tabulabili_fingerprint
         │                         $done({})
         │
-        └─ feed/index 或 .../rcmd ──► tabulabili-rcmd.js
-                                      read mode
-                                      shouldScrub?
-                                      scrub Cookie + auth headers
-                                      App? deauthAndResignUrl
-                                      $done({ headers, url? })
+        ├─ feed/index 或 .../rcmd ──► tabulabili-rcmd.js (request)
+│                                   scrub + resign
+│                                   $done({ headers, url? })
+│
+└─ 同 URL 响应 ─────────────► tabulabili-risk.js (response)
+                                    parse code / items
+                                    throttle notify if -352/...
+                                    $done({})  // 不改 body
 ```
 
 ---
@@ -444,6 +474,7 @@ curl -sI "https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scrip
 | raw 坑 | `plugin/*.plugin` 404 → 根目录安装入口 |
 | 无效反馈 | 对齐可莉 App `feed/index`；去 access_key + MD5 重签；扩 MitM |
 | 本文 | 固化全部考虑供 AI 接手 |
+| 风控 | 参考 bili-webos `-352` 探针；落地被动 `tabulabili-risk.js` + 节流通知 |
 
 ---
 

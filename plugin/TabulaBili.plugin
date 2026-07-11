@@ -1,5 +1,5 @@
 #!name = TabulaBili 初见哔哩
-#!desc = 减弱 B 站首页个性化推荐：清洗 Web/App 推荐请求的登录态，保留设备指纹(buvid)。播放/互动不受影响。默认探索模式 refresh。
+#!desc = 减弱 B 站首页个性化推荐：清洗 Web/App 推荐请求的登录态；可选被动风控探针（-352）。默认探索模式 refresh。
 #!author = beckyeeky
 #!homepage = https://github.com/beckyeeky/TabulaBili-Loon
 #!icon = https://www.bilibili.com/favicon.ico
@@ -14,23 +14,30 @@
 #   refresh — 探索：推荐请求只保留 buvid，并去掉 App access_key（默认）
 #   pure    — 纯净：推荐请求去掉全部 Cookie + access_key
 #   mixed   — 混合：奇数次清洗 / 偶数次原样
-#   origin  — 关闭
+#   origin  — 关闭清洗
 #
-# 说明: 参考可莉 Bilibili 插件的 App MitM/接口范围；
-# 逻辑灵感来自 tjsky/TabulaBili。非去广告插件。
+# 风控探针: 被动解析推荐接口响应；-352/异常可通知（30 分钟节流）
+# 说明: 参考可莉 MitM/App 接口；探针思路参考 bili-webos rcmd 诊断。非去广告。
 
 [Argument]
-mode = select,"refresh","pure","mixed","origin",tag=推荐模式,desc=refresh=探索(buvid) | pure=纯净 | mixed=交替 | origin=关闭
+mode = select,"refresh","pure","mixed","origin",tag=推荐模式,desc=refresh=探索(buvid) | pure=纯净 | mixed=交替 | origin=关闭清洗
+risk_notify = switch,true,tag=风控通知,desc=推荐接口返回 -352/异常时本地通知（30 分钟同类最多 1 次）
+risk_debug = switch,false,tag=风控调试日志,desc=开启后成功也会在脚本日志打印（仍不弹窗）
 
 [Script]
-# App 首页推荐（可莉等同款主接口）
+# App 首页推荐清洗
 http-request ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net)\/x\/v2\/feed\/index script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-rcmd.js, requires-body = false, timeout = 10, tag = TabulaBili App推荐清洗, argument = [{mode}]
 
-# Web 首页推荐（Chrome 扩展同源接口）
+# Web 首页推荐清洗
 http-request ^https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-rcmd.js, requires-body = false, timeout = 10, tag = TabulaBili Web推荐清洗, argument = [{mode}]
 
-# 指纹采集：App/Api 其它请求（排除 feed/rcmd）
+# 指纹采集（排除 feed/rcmd）
 http-request ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net|api\.bilibili\.com)\/(?!x\/v2\/feed\/index|x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd) script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-capture.js, requires-body = false, timeout = 5, tag = TabulaBili指纹采集
+
+# 风控探针：被动读响应，不改 body
+http-response ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net)\/x\/v2\/feed\/index script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-risk.js, requires-body = true, timeout = 10, tag = TabulaBili App风控探针, argument = [{risk_notify},{risk_debug}]
+
+http-response ^https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-risk.js, requires-body = true, timeout = 10, tag = TabulaBili Web风控探针, argument = [{risk_notify},{risk_debug}]
 
 [MitM]
 hostname = app.bilibili.com, app.biliapi.net, api.bilibili.com

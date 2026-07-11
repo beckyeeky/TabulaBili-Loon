@@ -7,14 +7,16 @@
 #!loon_version = 3.2.1(733)
 
 [Argument]
-mode = select,"refresh","pure","mixed","origin",tag=推荐模式,desc=refresh=探索(buvid) | pure=纯净 | mixed=交替 | origin=关闭
+mode = select,"refresh","pure","mixed","origin",tag=推荐模式,desc=refresh=探索(buvid) | pure=纯净 | mixed=交替 | origin=关闭清洗
+risk_notify = switch,true,tag=风控通知,desc=推荐接口 -352/异常时通知
+risk_debug = switch,false,tag=风控调试日志,desc=成功也打日志
 
 [Script]
 http-request ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net)\/x\/v2\/feed\/index script-path = scripts/tabulabili-rcmd.js, requires-body = false, timeout = 10, tag = TabulaBili App推荐清洗, argument = [{mode}]
-
 http-request ^https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd script-path = scripts/tabulabili-rcmd.js, requires-body = false, timeout = 10, tag = TabulaBili Web推荐清洗, argument = [{mode}]
-
 http-request ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net|api\.bilibili\.com)\/(?!x\/v2\/feed\/index|x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd) script-path = scripts/tabulabili-capture.js, requires-body = false, timeout = 5, tag = TabulaBili指纹采集
+http-response ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net)\/x\/v2\/feed\/index script-path = scripts/tabulabili-risk.js, requires-body = true, timeout = 10, tag = TabulaBili App风控探针, argument = [{risk_notify},{risk_debug}]
+http-response ^https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd script-path = scripts/tabulabili-risk.js, requires-body = true, timeout = 10, tag = TabulaBili Web风控探针, argument = [{risk_notify},{risk_debug}]
 
 [MitM]
 hostname = app.bilibili.com, app.biliapi.net, api.bilibili.com

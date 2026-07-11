@@ -33,6 +33,26 @@
 - 页面 DOM / 自动点「换一换」
 - gRPC 推荐流（新版 App 若全面 gRPC 需另做 proto）
 
+### 风控探针（已内置）
+
+被动解析推荐接口 **响应体**（不改内容）：
+
+| 结果 | 行为 |
+|------|------|
+| `code=0` 且有条目 | 日志正常；默认不通知 |
+| `code=-352` | 本次推荐被风控；可本地通知 |
+| `code=0` 空列表 | 提示空推荐 |
+| 其它 code | 提示业务异常 |
+
+插件参数：
+
+- **风控通知**（默认开）：异常通知，**同类 30 分钟最多 1 次**
+- **风控调试日志**（默认关）：成功也写脚本日志
+
+`-352` ≠ 账号全局封禁，也不等于「一定是海外 IP」。
+
+日志搜：`[TabulaBili][risk]` / `风控探针` / `code=-352`。
+
 ---
 
 ## 安装
@@ -94,10 +114,13 @@ script-path=tabulabili-rcmd.js
 
 ```text
 TabulaBili-Loon/
-├── plugin/TabulaBili.plugin     # Loon 插件清单
+├── AGENTS.md
+├── TabulaBili.plugin            # 安装入口（根目录 raw）
+├── plugin/TabulaBili.plugin
 ├── scripts/
-│   ├── tabulabili-rcmd.js       # 推荐接口 Cookie 清洗
-│   └── tabulabili-capture.js    # buvid 指纹采集
+│   ├── tabulabili-rcmd.js       # 推荐请求去身份
+│   ├── tabulabili-capture.js    # buvid 指纹采集
+│   └── tabulabili-risk.js       # 被动风控探针
 ├── LICENSE
 └── README.md
 ```
