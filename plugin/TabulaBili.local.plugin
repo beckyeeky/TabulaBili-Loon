@@ -1,0 +1,24 @@
+#!name=TabulaBili 初见哔哩 (本地脚本)
+#!desc=清洗 B 站 Web 首页推荐接口 Cookie。请将 script-path 改为你设备上的实际路径后再导入。
+#!author=beckyeeky
+#!homepage=https://github.com/beckyeeky/TabulaBili-Loon
+#!icon=https://www.bilibili.com/favicon.ico
+#!tag=Bilibili,推荐,信息茧房
+#!system=iOS,iPadOS,macOS
+#!loon_version=3.2.1(733)
+
+# 使用前：把下面 script-path 换成 Loon 可访问的本地/自建 URL。
+# 例如把 scripts/*.js 放到 iCloud Loon 目录后填写对应路径。
+
+[Argument]
+mode = select,"refresh","pure","mixed","origin",tag=推荐模式,desc=refresh=探索(只留设备指纹) | pure=纯净(去全部Cookie) | mixed=交替 | origin=关闭
+
+[Script]
+http-request ^https:\/\/api\.bilibili\.com\/(?!x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd) script-path=scripts/tabulabili-capture.js, requires-body=false, timeout=5, tag=TabulaBili指纹采集
+
+http-request ^https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/feed\/rcmd script-path=scripts/tabulabili-rcmd.js, requires-body=false, timeout=10, tag=TabulaBili推荐清洗, argument=[{mode}]
+
+http-request ^https:\/\/api\.bilibili\.com\/x\/web-interface\/index\/top\/rcmd script-path=scripts/tabulabili-rcmd.js, requires-body=false, timeout=10, tag=TabulaBili推荐清洗(legacy), argument=[{mode}]
+
+[MITM]
+hostname = api.bilibili.com

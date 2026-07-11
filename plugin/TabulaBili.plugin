@@ -1,0 +1,31 @@
+#!name=TabulaBili 初见哔哩
+#!desc=清洗 B 站 Web 首页推荐接口 Cookie，减弱基于账号的个性化推荐；播放/互动不受影响。默认「探索模式」(仅 buvid)。
+#!author=beckyeeky
+#!homepage=https://github.com/beckyeeky/TabulaBili-Loon
+#!icon=https://www.bilibili.com/favicon.ico
+#!openUrl=https://github.com/beckyeeky/TabulaBili-Loon
+#!tag=Bilibili,推荐,信息茧房
+#!system=iOS,iPadOS,macOS
+#!loon_version=3.2.1(733)
+
+# 模式说明:
+#   refresh — 探索：推荐请求只带 buvid3/4（默认，较稳）
+#   pure    — 纯净：推荐请求完全去掉 Cookie（可能触发固定缓存流）
+#   mixed   — 混合：奇数次清洗 / 偶数次原样
+#   origin  — 个性：不干预
+
+[Argument]
+mode = select,"refresh","pure","mixed","origin",tag=推荐模式,desc=refresh=探索(只留设备指纹) | pure=纯净(去全部Cookie) | mixed=交替 | origin=关闭
+
+[Script]
+# 采集 buvid 指纹（跳过 rcmd，避免与清洗脚本双匹配抢 $done）
+http-request ^https:\/\/api\.bilibili\.com\/(?!x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd) script-path=https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-capture.js, requires-body=false, timeout=5, tag=TabulaBili指纹采集
+
+# 首页 feed 推荐接口 Cookie 清洗（Web Wbi）
+http-request ^https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/feed\/rcmd script-path=https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-rcmd.js, requires-body=false, timeout=10, tag=TabulaBili推荐清洗, argument=[{mode}]
+
+# 兼容旧路径（无 wbi 前缀时）
+http-request ^https:\/\/api\.bilibili\.com\/x\/web-interface\/index\/top\/rcmd script-path=https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-rcmd.js, requires-body=false, timeout=10, tag=TabulaBili推荐清洗(legacy), argument=[{mode}]
+
+[MITM]
+hostname = api.bilibili.com
