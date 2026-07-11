@@ -36,17 +36,21 @@
 1. Loon 已安装并信任 MitM 证书  
 2. 建议 Loon ≥ 3.2.1 (733)（`[Argument]` UI）
 
-### 方式 A：远程插件（仓库需 **Public**，或你已把 raw 挂到可访问 CDN）
+### 方式 A：远程插件（推荐）
 
-插件地址：
+仓库已 **Public**。Loon → 配置 → 插件 → `+` → 粘贴：
 
 ```text
-https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/plugin/TabulaBili.plugin
+https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/TabulaBili.plugin
 ```
 
-Loon → 配置 → 插件 → `+` → 粘贴 URL → 保存并更新。
+备用（jsDelivr）：
 
-> ⚠️ **当前仓库为 Private 时**，Loon 无法直接拉取 GitHub raw。请用方式 B，或暂时改为 Public / 自建可访问 raw 源后改 `script-path`。
+```text
+https://cdn.jsdelivr.net/gh/beckyeeky/TabulaBili-Loon@main/TabulaBili.plugin
+```
+
+> 说明：GitHub raw 对路径 `plugin/*.plugin` 会 404，故安装入口放在仓库根目录 `TabulaBili.plugin`（与 `plugin/` 内内容同步）。脚本仍用 `scripts/*.js` raw，可正常拉取。
 
 ### 方式 B：本地安装（Private 推荐）
 
