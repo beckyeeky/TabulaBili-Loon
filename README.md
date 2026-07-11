@@ -1,11 +1,11 @@
 # TabulaBili-Loon（初见哔哩 · Loon 插件）
 
 在 **Loon** 网络层复现 [TabulaBili-Plus](https://github.com/tjsky/TabulaBili) 的核心思路：  
-只清洗 **B 站 Web 首页推荐接口** 的请求 `Cookie`，减弱基于账号登录态的个性化推荐；  
+清洗 **B 站 Web / App 首页推荐** 请求中的登录态，减弱基于账号的个性化推荐；  
 视频播放、历史、点赞收藏等其它请求保持原样。
 
-> 灵感 / 上游： [tjsky/TabulaBili](https://github.com/tjsky/TabulaBili)（MIT）· 原作者 [wangdaodaodao](https://github.com/wangdaodaodao)
-
+> 灵感 / 上游： [tjsky/TabulaBili](https://github.com/tjsky/TabulaBili)（MIT）· 原作者 [wangdaodaodao](https://github.com/wangdaodaodao)  
+> **开发 / 其它 AI 接手：** [AGENTS.md](./AGENTS.md)
 ---
 
 ## 功能
