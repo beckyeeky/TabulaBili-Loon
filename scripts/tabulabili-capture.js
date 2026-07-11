@@ -1,6 +1,6 @@
 /**
- * TabulaBili-Loon — 从 B 站请求中采集 buvid3/buvid4 指纹
- * 仅在 Cookie 含 buvid 时更新 $persistentStore，不修改请求。
+ * TabulaBili-Loon — 采集 buvid 指纹（不修改请求）
+ * 匹配 app/api 通用流量，排除推荐 feed 本身，避免与清洗脚本双命中。
  */
 
 const STORE_FP = "tabulabili_fingerprint";
@@ -17,6 +17,9 @@ function extractBuvidFingerprint(cookieStr) {
   const m4 = cookieStr.match(/(?:^|;\s*)buvid4=([^;]+)/i);
   if (m3 && m3[1]) parts.push(`buvid3=${m3[1].trim()}`);
   if (m4 && m4[1]) parts.push(`buvid4=${m4[1].trim()}`);
+  // App 有时只有 Buvid header / buvid 单字段
+  const m = cookieStr.match(/(?:^|;\s*)buvid=([^;]+)/i);
+  if (!m3 && m && m[1]) parts.push(`buvid=${m[1].trim()}`);
   return parts.join("; ");
 }
 
@@ -24,11 +27,15 @@ function extractBuvidFingerprint(cookieStr) {
   try {
     const headers = $request.headers || {};
     const key = findHeaderKey(headers, "Cookie");
-    if (!key) {
-      $done({});
-      return;
+    let fp = key ? extractBuvidFingerprint(headers[key]) : "";
+    // 部分 App 请求把设备 id 放在独立头
+    if (!fp) {
+      const buvidH =
+        headers[findHeaderKey(headers, "Buvid") || ""] ||
+        headers[findHeaderKey(headers, "buvid") || ""] ||
+        "";
+      if (buvidH) fp = `buvid3=${buvidH}`;
     }
-    const fp = extractBuvidFingerprint(headers[key]);
     if (!fp) {
       $done({});
       return;
@@ -39,7 +46,7 @@ function extractBuvidFingerprint(cookieStr) {
       console.log("[TabulaBili] fingerprint updated");
     }
   } catch (e) {
-    console.log(`[TabulaBili] capture error: ${e}`);
+    console.log(`[TabulaBili] capture: ${e}`);
   }
   $done({});
 })();

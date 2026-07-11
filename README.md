@@ -12,20 +12,26 @@
 
 | 模式 | 行为 |
 |------|------|
-| **refresh（探索，默认）** | 推荐请求只保留 `buvid3` / `buvid4` |
-| **pure（纯净）** | 推荐请求删除全部 Cookie |
+| **refresh（探索，默认）** | 推荐请求只保留 `buvid`，并去掉 App `access_key` 后重签 |
+| **pure（纯净）** | 推荐请求删除 Cookie + 去 `access_key` |
 | **mixed（混合）** | 全局奇偶交替：清洗 / 原样 |
 | **origin（个性）** | 不干预 |
 
-**作用接口（Web）：**
+**作用接口：**
 
-- `api.bilibili.com/x/web-interface/wbi/index/top/feed/rcmd`
-- `api.bilibili.com/x/web-interface/index/top/rcmd`（兼容）
+| 端 | URL |
+|----|-----|
+| **App（主）** | `app.bilibili.com` / `app.biliapi.net` → `/x/v2/feed/index` |
+| **Web** | `api.bilibili.com/x/web-interface(/wbi)/index/top/feed/rcmd` |
+
+> 可莉 [Bilibili_remove_ads.lpx](https://kelee.one/Tool/Loon/Lpx/Bilibili_remove_ads.lpx) 主要是 **App 去广告（改响应体）**。  
+> 本插件目标不同：**去个性化（改请求身份）**。接口/MitM 范围对齐 App 首页 feed。
 
 **不做：**
 
-- 页面 DOM / 自动点「换一换」（Loon 无 content script）
-- B 站 App 原生 feed（接口不同，可后续加）
+- 去广告 / 精简「我的」页（请用可莉等插件）
+- 页面 DOM / 自动点「换一换」
+- gRPC 推荐流（新版 App 若全面 gRPC 需另做 proto）
 
 ---
 
@@ -72,10 +78,13 @@ script-path=tabulabili-rcmd.js
 
 1. 开启插件，MitM 包含 `api.bilibili.com`（插件已声明）  
 2. 插件参数里选择 **推荐模式**（默认 `refresh`）  
-3. Safari 打开 [www.bilibili.com](https://www.bilibili.com) 首页，多刷新 / 点「换一换」观察推荐是否变「大盘」  
-4. 进视频页确认画质 / 登录态正常  
+3. **优先测 B 站 App**：下拉刷新首页推荐；也可 Safari 打开 bilibili.com  
+4. Loon → 仪表盘 / 脚本日志：应看到 `TabulaBili App推荐清洗` 触发  
+5. 进视频页确认仍可登录态播放  
 
-**建议：** 优先用 `refresh`。`pure` 可能触发 B 站匿名固定缓存流（同内容重复）。
+**建议：** 优先 `refresh`。`pure` 可能触发固定缓存流。  
+**与去广告插件：** 可和可莉同开；若异常先关其它 B 站插件对比。  
+**更新插件后请点「更新」** 再杀进程重开 B 站。
 
 **重置设备指纹：** 在 Safari 清除 bilibili.com 站点数据，或删 Loon 脚本存储后重新打开 B 站（采集脚本会重写 `buvid`）。
 
