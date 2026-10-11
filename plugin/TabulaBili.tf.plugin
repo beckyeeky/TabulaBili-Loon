@@ -1,11 +1,11 @@
-#!name = TabulaBili 初见哔哩 (现代语法)
-#!desc = 可选现代语法入口；推荐请求去身份，不是去广告。Web pure 使用 Rewrite；App 重签、指纹与混合状态保留 JS。勿与稳定入口同时启用。
+#!name = TabulaBili 初见哔哩 (Loon TF)
+#!desc = main 默认 TF 现代语法入口；推荐请求去身份，不是去广告。Web pure 使用 Rewrite V2；App 重签、指纹与混合状态保留 Script V2 + JS。所有同内容入口只启用一个，勿重复启用。
 #!author = beckyeeky
 #!homepage = https://github.com/beckyeeky/TabulaBili-Loon
 #!tag = Bilibili,推荐,信息茧房
 #!system = iOS,iPadOS,macOS
 #!system_version = 15
-#!loon_version = 3.5.1(998)
+#!loon_version = 3.5.3(1007)
 #!date = 2026-10-11
 
 [Argument]

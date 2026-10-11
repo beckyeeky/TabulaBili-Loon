@@ -3,9 +3,9 @@ import pathlib,re,unittest
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 class ModernPluginTests(unittest.TestCase):
  def setUp(self):
-  self.text=(ROOT/'TabulaBili.tf.plugin').read_text()
+  self.text=(ROOT/'TabulaBili.plugin').read_text()
   self.lines=[x for x in self.text.splitlines() if x.startswith(('request if ','response if '))]
- def test_minimum_version(self): self.assertIn('#!loon_version = 3.5.1(998)',self.text)
+ def test_minimum_version(self): self.assertIn('#!loon_version = 3.5.3(1007)',self.text)
  def test_typed_arguments(self):
   self.assertEqual(sum('{${mode}}' in s for s in self.lines),2)
   self.assertEqual(sum('{${risk_notify}, ${risk_debug}}' in s for s in self.lines),2)
@@ -39,15 +39,25 @@ class ModernPluginTests(unittest.TestCase):
   for s in self.lines:
    if s.startswith('response'):self.assertIn('${url} ~= ',s);self.assertIn('requires_body=true',s)
  def test_copies_synchronized(self):
-  self.assertEqual((ROOT/'plugin/TabulaBili.tf.plugin').read_text(), self.text)
-  legacy=(ROOT/'TabulaBili.plugin').read_text()
-  for name in ['TabulaBili.plugin','TabulaBili.conf']:
-   self.assertEqual((ROOT/'plugin'/name).read_text(),legacy)
- def test_legacy_exact_scope(self):
-  for line in (ROOT/'TabulaBili.plugin').read_text().splitlines():
-   if not line.startswith(('http-request ','http-response ')) or '指纹采集' in line:continue
-   pattern=line.split(' ')[1].replace(r'\/', '/')
-   rx=re.compile(pattern,re.I)
-   self.assertIsNone(rx.search('https://app.bilibili.com/x/v2/feed/index/story?x=1'))
-   self.assertIsNone(rx.search('https://api.bilibili.com/x/web-interface/wbi/index/top/feed/rcmdevil'))
+  for name in ['TabulaBili.tf.plugin','plugin/TabulaBili.plugin','plugin/TabulaBili.conf','plugin/TabulaBili.tf.plugin']:
+   with self.subTest(path=name):self.assertEqual((ROOT/name).read_text(),self.text)
+ def test_all_entries_modern_syntax_and_version(self):
+  for name in ['TabulaBili.plugin','TabulaBili.tf.plugin','plugin/TabulaBili.plugin','plugin/TabulaBili.conf','plugin/TabulaBili.tf.plugin','plugin/TabulaBili.local.plugin']:
+   with self.subTest(path=name):
+    text=(ROOT/name).read_text()
+    self.assertIn('#!loon_version = 3.5.3(1007)',text)
+    self.assertIn('[Rewrite]',text);self.assertIn('[Script]',text)
+    self.assertNotRegex(text,r'(?m)^http-(request|response) ')
+    self.assertNotIn('script-path',text)
+    lines=[s for s in text.splitlines() if s.startswith(('request if ','response if '))]
+    self.assertEqual(len(lines),6)
+    self.assertEqual(sum('then script(' in s for s in lines),5)
+    self.assertIn('勿重复启用',text)
+ def test_local_template_same_implementation(self):
+  local=(ROOT/'plugin/TabulaBili.local.plugin').read_text()
+  normalized=local.replace('script("scripts/','script("https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/')
+  strip_desc=lambda text:'\n'.join(s for s in text.splitlines() if not s.startswith('#!desc'))
+  self.assertEqual(strip_desc(normalized),strip_desc(self.text))
+  self.assertEqual(sum('then script("scripts/' in s for s in local.splitlines()),5)
+  self.assertNotIn('/main/scripts/',local)
 if __name__=='__main__':unittest.main()

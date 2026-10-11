@@ -79,7 +79,7 @@ TabulaBili-Loon/
 ├── TabulaBili.plugin         # 【安装入口】根目录 raw 可用
 ├── plugin/
 │   ├── TabulaBili.plugin     # 与根目录同步的副本
-│   ├── TabulaBili.local.plugin  # 本地 script-path 模板
+│   ├── TabulaBili.local.plugin  # 本地 Script V2 路径模板
 │   └── TabulaBili.conf       # 镜像（raw 兼容备用）
 └── scripts/
     ├── tabulabili-rcmd.js    # 推荐请求清洗（Web+App）
@@ -243,34 +243,33 @@ app.bilibili.com, app.biliapi.net, api.bilibili.com
 
 ---
 
-## 7. 插件格式约定（对齐可莉/社区）
+## 7. 插件格式约定（仅 Loon TF 现代语法）
 
-参考可莉 Loon 插件风格：
+项目门槛为 TF 3.5.3(1007)，采用官方 Rewrite V2 + Script V2：
 
 ```text
 #!name = xxx
 #!desc = xxx
-#!loon_version = 3.2.1(733)
+#!loon_version = 3.5.3(1007)
 
 [Argument]
 mode = select,"refresh","pure",...
 
+[Rewrite]
+request if ${mode} == "pure" && ${url} ~= /^https:\/\/api\.example\.com\// then request.header.del(["Cookie"])
+
 [Script]
-http-request ^... script-path = https://..., requires-body = false, tag = ..., argument = [{mode}]
+request if ${url} ~= /^https:\/\/api\.example\.com\// then script("https://example.com/script.js", {${mode}}) with tag="示例", timeout=10, requires_body=false
 
 [MitM]
 hostname = a, b, c
 ```
 
-注意：
-
-- 段名用 **`[MitM]`**（社区常见；`[MITM]` 多数版本也能认，保持与可莉一致）
-- `script-path =` 等号两侧空格与社区一致
-- 清洗/采集：`requires-body = false`；风控探针：`requires-body = true`
-- 远程脚本必须 **public raw 可拉**
-- Argument：`mode` 给 request 脚本；`risk_notify`/`risk_debug` 给 response 探针
-
-Argument 需 Loon 新版本（文档曾写 build 733+）；过旧 Loon 可能看不到模式 UI，仍可读 store 默认 refresh。
+- 段名保持 `[MitM]`。
+- 清洗/采集：`requires_body=false`；风控探针：`requires_body=true`。
+- 远程脚本必须 public raw 可拉，指向 main；本地模板保留 `scripts/...`，由使用者调整可访问路径。
+- 参数 `mode` 给 request 脚本；`risk_notify`/`risk_debug` 给 response 探针。
+- 不保留旧 Script/Rewrite 语法入口或稳定版兼容负担；所有同内容入口勿重复启用。
 
 ---
 
@@ -375,8 +374,8 @@ Argument 需 Loon 新版本（文档曾写 build 733+）；过旧 Loon 可能看
 
 ### 10.1 改代码检查清单
 
-1. 改 `scripts/*.js` 后，确认根目录与 `plugin/*.plugin` 的 **script-path URL 仍指向 main**  
-2. 改插件清单时 **同步** `TabulaBili.plugin`（根）与 `plugin/TabulaBili.plugin`  
+1. 改 `scripts/*.js` 后，确认所有远程入口的 **script("URL") 仍指向 main**，本地模板保留原路径用途
+2. 改插件清单时同步全部五份远程入口；本地模板同步逻辑，仅说明和 script 路径不同
 3. 新增 URL 匹配时：  
    - 清洗与采集 **互斥**  
    - MitM hostname 覆盖新主机  
@@ -480,7 +479,7 @@ curl -sI "https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scrip
 
 ## 15. 2026-10-11 现代入口与核心修复（优先于历史规格）
 
-- 可选 `TabulaBili.tf.plugin` 与 `plugin/TabulaBili.tf.plugin` 保持逐字同步，最低 Loon 3.5.1(998)；保留旧入口，仅启用其中一个。
+- main 默认入口 `TabulaBili.plugin` 仅支持 Loon TF ≥ 3.5.3(1007)，采用 Rewrite V2 + Script V2；不维护稳定版/旧语法实现。根目录与 plugin/ 的 `.plugin`、`.tf.plugin` 及 `.conf` 远程入口逐字同步，仅为兼容地址，勿重复启用。本地模板只有说明与脚本路径不同，保留 `scripts/...` 用途。
 - 官方实页 Rewrite 是 `request if ... then request.header.del(...)`；Script 是 `request/response if ... then script("URL", {${mode}}) with requires_body=false`。Script V2 文档基线 983，Rewrite 基线 978，998 已正式支持。旧技能 `http-request if` 示例过时，不照抄。
 - Web pure 使用 Rewrite，Web refresh/mixed 使用 Script，两者互斥；App 签名/指纹/计数与被动通知保留 JS。
 - 清洗限 GET 与精确端点（末尾 `(?:\?|$)`），采集排除同一精确端点。播放/互动与 `feed/index/story` 不清洗；mixed 非推荐不计数。
@@ -488,10 +487,10 @@ curl -sI "https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scrip
 - App 签名改为 MD5(按 key 排序的实际 percent-encoded query + secret)；未知 appkey/异常整体原样放行，不再假用默认密钥。此时清洗未完成，不宣称去身份成功。
 - 风控异常按 kind:code 独立时间戳节流，交替异常不绕过；risk_debug=false 不打印正常结果。仅日志/通知，响应保持原样。
 - 新 Script 同一请求/响应各最多选第一条命中；与可莉/cleaner 同阶段响应脚本会竞争，本探针可能不运行。旧 §8.4 的“后写覆盖”不作为现代匹配依据。
-- main 为合并后发布引用。PR 测试必须下载插件，将全部 `/main/scripts/` 改为 `/feat/loon-tf-modern-20261011/scripts/` 或 commit SHA，再导入；只改插件外层 URL 无效。
+- 所有现有 PR 核心修复与默认入口升级直接发布 main；安装插件和脚本均使用 main，无需分支试用。将来若固定 commit 复现，插件 URL 和其内部全部远程脚本 URL 必须同时固定。
 - 关联核对：TabulaBili HEAD e580595627e60210ba1dc39c743c16e54383de35，v1.2.0 后仅文档；bili-webos e38ed9a83f12 最近播放恢复/限时请求/DASH/CDN 与关注功能不移植，仅保留 rcmd 风控思路；cleaner aa6bbd4c278b 的 UID/竖屏/时长/分区是响应过滤，不合并产品职责。
 - 可莉实际原站插件/两份引用脚本已用此前实测 UA 成功 GET，日期 10-02、最低 998；两脚本 SHA-256 与 10-03 保存记录一致（完整 hash 见 README）。首页现为 Response jq Body Rewrite，命中会禁用本 Response Script；其 app.biliapi.net REJECT 亦可能阻断清洗流量，不复制。空降使用 bsbsb sponsor 的 BV/CID 查询，skip≥8 秒/start+2 秒弹幕 + ViewProgress 替换 Chronos（清 sign） + 模块识别文字与 @airborne 后 seekTo/撤销返回。Loon 能通过响应让 App 加载模块实现跳转，不是直接操控播放器；不扩大本项目去身份职责。Chronos HEAD 9526528ebc3c8fbf835da481884412b12c5129b9（10-07）只新增 106d21a147f49e9d4ef86e2e8523474f.zip，现引用映射未指向它。
 - LoonNews 最新可见 TF 3.5.3(1007) 的 include-tun/IP Rewrite 是 IP 层特性，不适用于推荐身份清洗；不添加无关配置。
-- 回归：`python3 -m unittest discover -s tests -v`、`node tests/test_scripts.js`。新增清单结构、模式、指纹、MD5/编码重签、未知密钥、播放不改、通知开关/节流及单次 done 验证。非 Loon 解析器，不代替真机服务端验签；合并前需依 §9 真机验证。
+- 回归：`python3 -m unittest discover -s tests -v`、`node tests/test_scripts.js`。新增清单结构、模式、指纹、MD5/编码重签、未知密钥、播放不改、通知开关/节流及单次 done 验证。非 Loon 解析器，不代替真机服务端验签；发布后的真机验收仍需依 §9 执行，不宣称已完成真机验证。
 
 **维护约定：** 任何改变匹配 URL、模式语义、签名逻辑、MitM、安装路径的 PR/commit，必须改本文件 §4–§9 或 §15，避免下一位 AI 重复踩坑。

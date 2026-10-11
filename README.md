@@ -78,22 +78,17 @@ https://cdn.jsdelivr.net/gh/beckyeeky/TabulaBili-Loon@main/TabulaBili.plugin
 
 > 安装入口保留根目录便于发现；`plugin/TabulaBili.plugin` 在 2026-10-11 实际 GET 返回 200。目录名不会天然导致 404。
 
-### 可选现代语法（Loon ≥ 3.5.1(998)）
+### 默认 TF 现代语法（Loon TestFlight ≥ 3.5.3(1007)）
 
-旧入口继续兼容，现代入口为 `TabulaBili.tf.plugin`（`plugin/` 有同步副本）。两者**只能启用一个**。
+main 根目录 `TabulaBili.plugin` 已统一为 Rewrite V2 + Script V2 默认入口；项目仅面向 TF，不维护稳定版或旧语法兼容实现。`plugin/TabulaBili.plugin`、`.conf` 与两个 `TabulaBili.tf.plugin` 是逐字相同的兼容地址，不是不同版本；所有入口**只能启用一个，勿重复启用**。
 
-合并后入口：
-```text
-https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/TabulaBili.tf.plugin
-```
-
-PR 未合并时，直接安装 main 既没有新插件也没有新脚本。请将本分支的 `TabulaBili.tf.plugin` 下载为本地文件，把其中全部 `/main/scripts/` 替换为 `/feat/loon-tf-modern-20261011/scripts/`，再导入 Loon；也可把 `main` 替换为本 PR 的完整 commit SHA 固定版本。**不能只改插件 URL，不改其内脚本 URL。**
+插件和全部脚本均直接引用 main，无需 PR 分支试用或手动替换远程脚本 URL。
 
 现代入口仅将 Web `pure` 的删 Cookie/鉴权头迁移到官方 Rewrite V2；保留 WBI 查询参数。App 重签、指纹、mixed 状态和通知仍由 JS 处理。GET、精确路径和必要 Response URL Guard 限定范围，Web pure 与清洗脚本互斥。
 
 官方 [Rewrite V2](https://nsloon.app/docs/Rewrite/rewrite_v2/) 使用 `request if ... then request.header.del(...)`；[Script V2](https://nsloon.app/docs/Script/script_v2/) 使用 `request/response if ... then script(URL, {${mode}}) with requires_body=...`。技能示例的 `http-request if` 不适用于此版本。
 
-[LoonNews](https://t.me/s/LoonNews) 当前可见 TestFlight 3.5.3(1007)，新增 `include-tun` / `[IP Rewrite]` 是 IP 数据包路由/处理，不是 HTTP 去身份；不为追求新特性而添加无关规则。现代语法已在商店版 3.5.1(998) 支持。证书创建/安装可能需官方网页工具，已有信任证书不受影响。
+[LoonNews](https://t.me/s/LoonNews) 当前可见 TestFlight 3.5.3(1007)，新增 `include-tun` / `[IP Rewrite]` 是 IP 数据包路由/处理，不是 HTTP 去身份；不为追求新特性而添加无关规则。项目支持门槛选择 TF 3.5.3(1007)，与该公告示例 `#!loon_version = 3.5.3(1007)` 一致；这不是声明 V2 首次出现于 1007，也不承诺稳定版兼容。证书创建/安装可能需官方网页工具，已有信任证书不受影响。
 
 ### 2026-10-11 上游与关联项目核对
 
@@ -115,13 +110,13 @@ PR 未合并时，直接安装 main 既没有新插件也没有新脚本。请�
 ### 方式 B：本地安装（Private 推荐）
 
 1. `git clone` 本仓库到可被 Loon 读取的位置（如 iCloud / 电脑同步目录）  
-2. 将 `plugin/TabulaBili.plugin` 内两处 `script-path=` 改为本地路径或你的可访问 HTTPS  
-3. 在 Loon 中以「文件 / URL」导入该 `.plugin`
+2. 使用 `plugin/TabulaBili.local.plugin` 模板，将五处 `script("scripts/...")` 调用路径改为设备可访问的本地路径或 HTTPS
+3. 在 Loon TF 中以「文件 / URL」导入该 `.plugin`，不要同时启用远程入口
 
 本地示例（按你设备路径改）：
 
 ```text
-script-path=tabulabili-rcmd.js
+script("file:///.../tabulabili-rcmd.js", {${mode}})
 ```
 
 （若 Loon 要求完整路径，请写成 `file:///...` 或 App 内本地脚本路径。）
@@ -164,7 +159,7 @@ TabulaBili-Loon/
 ## 原理（简述）
 
 Chrome 扩展用 `declarativeNetRequest` 改推荐请求头；  
-Loon 用 `http-request` 脚本改同一批接口的 `Cookie`：
+Loon TF 用 Rewrite V2 与 Script V2 清洗同一批推荐接口的请求身份：
 
 - Wbi 签名校验的是 URL Query，**不签 Cookie** → 只改 Cookie 一般不会 `-403`  
 - 范围仅限 rcmd feed，播放相关 API 不匹配 → 会员画质不受影响  
