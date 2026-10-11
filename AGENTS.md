@@ -103,7 +103,7 @@ https://cdn.jsdelivr.net/gh/beckyeeky/TabulaBili-Loon@main/TabulaBili.plugin
 | URL | raw.githubusercontent 结果 |
 |-----|---------------------------|
 | `/TabulaBili.plugin`（根目录） | ✅ 200 |
-| `/plugin/TabulaBili.plugin` | ❌ **404**（路径 `plugin/*.plugin` 异常） |
+| `/plugin/TabulaBili.plugin` | ✅ **实测 GET 200（2026-10-11）** |
 | `/plugin/TabulaBili.conf` | ✅ 200 |
 | `/scripts/*.js` | ✅ 200 |
 | jsDelivr 上 `plugin/*.plugin` | ✅ 200 |
@@ -402,7 +402,7 @@ curl -sI "https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scrip
 
 ### 10.3 不要做的事
 
-- 不要把安装 URL 写成 `.../plugin/TabulaBili.plugin`（raw 404）  
+- 根目录安装入口便于发现，`plugin/` 副本也可正常 raw GET；必须实测，不能把目录名当作 404 原因。
 - 不要在采集脚本对 feed URL 再 `$done({headers})`  
 - 不要默认改成 pure  
 - 不要把去广告逻辑塞进本插件而不改产品定义  
@@ -471,11 +471,27 @@ curl -sI "https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scrip
 |--------|-----------|
 | 初始 | 可行性：Loon 可做请求侧 Cookie 清洗；DOM 不可移植 |
 | v0 | 仅 Web rcmd + api MitM；private → public |
-| raw 坑 | `plugin/*.plugin` 404 → 根目录安装入口 |
+| raw 坑（历史误判，已更正） | 2026-10-11 实际 GET `plugin/TabulaBili.plugin` 为 200；目录名不导致 404 |
 | 无效反馈 | 对齐可莉 App `feed/index`；去 access_key + MD5 重签；扩 MitM |
 | 本文 | 固化全部考虑供 AI 接手 |
 | 风控 | 参考 bili-webos `-352` 探针；落地被动 `tabulabili-risk.js` + 节流通知 |
 
 ---
 
-**维护约定：** 任何改变匹配 URL、模式语义、签名逻辑、MitM、安装路径的 PR/commit，必须改本文件 §4–§9 中至少一处，避免下一位 AI 重复踩坑。
+## 15. 2026-10-11 现代入口与核心修复（优先于历史规格）
+
+- 可选 `TabulaBili.tf.plugin` 与 `plugin/TabulaBili.tf.plugin` 保持逐字同步，最低 Loon 3.5.1(998)；保留旧入口，仅启用其中一个。
+- 官方实页 Rewrite 是 `request if ... then request.header.del(...)`；Script 是 `request/response if ... then script("URL", {${mode}}) with requires_body=false`。Script V2 文档基线 983，Rewrite 基线 978，998 已正式支持。旧技能 `http-request if` 示例过时，不照抄。
+- Web pure 使用 Rewrite，Web refresh/mixed 使用 Script，两者互斥；App 签名/指纹/计数与被动通知保留 JS。
+- 清洗限 GET 与精确端点（末尾 `(?:\?|$)`），采集排除同一精确端点。播放/互动与 `feed/index/story` 不清洗；mixed 非推荐不计数。
+- 指纹只取 buvid3/buvid4/buvid，当前请求优先，存储回退重新过滤；不要复用带账号 Cookie 的存储值。
+- App 签名改为 MD5(按 key 排序的实际 percent-encoded query + secret)；未知 appkey/异常整体原样放行，不再假用默认密钥。此时清洗未完成，不宣称去身份成功。
+- 风控异常按 kind:code 独立时间戳节流，交替异常不绕过；risk_debug=false 不打印正常结果。仅日志/通知，响应保持原样。
+- 新 Script 同一请求/响应各最多选第一条命中；与可莉/cleaner 同阶段响应脚本会竞争，本探针可能不运行。旧 §8.4 的“后写覆盖”不作为现代匹配依据。
+- main 为合并后发布引用。PR 测试必须下载插件，将全部 `/main/scripts/` 改为 `/feat/loon-tf-modern-20261011/scripts/` 或 commit SHA，再导入；只改插件外层 URL 无效。
+- 关联核对：TabulaBili HEAD e580595627e60210ba1dc39c743c16e54383de35，v1.2.0 后仅文档；bili-webos e38ed9a83f12 最近播放恢复/限时请求/DASH/CDN 与关注功能不移植，仅保留 rcmd 风控思路；cleaner aa6bbd4c278b 的 UID/竖屏/时长/分区是响应过滤，不合并产品职责。
+- 可莉实际原站插件/两份引用脚本已用此前实测 UA 成功 GET，日期 10-02、最低 998；两脚本 SHA-256 与 10-03 保存记录一致（完整 hash 见 README）。首页现为 Response jq Body Rewrite，命中会禁用本 Response Script；其 app.biliapi.net REJECT 亦可能阻断清洗流量，不复制。空降使用 bsbsb sponsor 的 BV/CID 查询，skip≥8 秒/start+2 秒弹幕 + ViewProgress 替换 Chronos（清 sign） + 模块识别文字与 @airborne 后 seekTo/撤销返回。Loon 能通过响应让 App 加载模块实现跳转，不是直接操控播放器；不扩大本项目去身份职责。Chronos HEAD 9526528ebc3c8fbf835da481884412b12c5129b9（10-07）只新增 106d21a147f49e9d4ef86e2e8523474f.zip，现引用映射未指向它。
+- LoonNews 最新可见 TF 3.5.3(1007) 的 include-tun/IP Rewrite 是 IP 层特性，不适用于推荐身份清洗；不添加无关配置。
+- 回归：`python3 -m unittest discover -s tests -v`、`node tests/test_scripts.js`。新增清单结构、模式、指纹、MD5/编码重签、未知密钥、播放不改、通知开关/节流及单次 done 验证。非 Loon 解析器，不代替真机服务端验签；合并前需依 §9 真机验证。
+
+**维护约定：** 任何改变匹配 URL、模式语义、签名逻辑、MitM、安装路径的 PR/commit，必须改本文件 §4–§9 或 §15，避免下一位 AI 重复踩坑。

@@ -75,13 +75,13 @@ function shouldNotify(kind, code) {
   // 成功不通知（除非以后加 debug 通知，目前只日志）
   if (kind === "ok") return false;
   const now = Date.now();
-  const lastTs = parseInt($persistentStore.read(STORE_LAST_TS) || "0", 10) || 0;
-  const lastCode = $persistentStore.read(STORE_LAST_CODE) || "";
   const key = `${kind}:${code}`;
-  if (lastCode === key && now - lastTs < THROTTLE_MS) {
+  const perKindKey = `${STORE_LAST_TS}_${key}`;
+  const lastTs = parseInt($persistentStore.read(perKindKey) || "0", 10) || 0;
+  if (lastTs && now - lastTs < THROTTLE_MS) {
     return false;
   }
-  $persistentStore.write(String(now), STORE_LAST_TS);
+  $persistentStore.write(String(now), perKindKey);
   $persistentStore.write(key, STORE_LAST_CODE);
   return true;
 }
@@ -140,11 +140,7 @@ function notify(title, subtitle, body) {
     summary = `${side} code=${code} items=${n}${msg ? " " + msg : ""}`;
   }
 
-  console.log(`[TabulaBili][risk] ${summary}`);
-
-  if (debug && kind === "ok") {
-    // 仅日志，已 console.log
-  }
+  if (kind !== "ok" || debug) console.log(`[TabulaBili][risk] ${summary}`);
 
   if (notifyOn && kind !== "ok") {
     if (shouldNotify(kind, code)) {

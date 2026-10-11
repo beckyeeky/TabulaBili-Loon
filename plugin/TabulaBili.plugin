@@ -26,18 +26,18 @@ risk_debug = switch,false,tag=风控调试日志,desc=开启后成功也会在�
 
 [Script]
 # App 首页推荐清洗
-http-request ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net)\/x\/v2\/feed\/index script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-rcmd.js, requires-body = false, timeout = 10, tag = TabulaBili App推荐清洗, argument = [{mode}]
+http-request ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net)\/x\/v2\/feed\/index(?:\?|$) script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-rcmd.js, requires-body = false, timeout = 10, tag = TabulaBili App推荐清洗, argument = [{mode}]
 
 # Web 首页推荐清洗
-http-request ^https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-rcmd.js, requires-body = false, timeout = 10, tag = TabulaBili Web推荐清洗, argument = [{mode}]
+http-request ^https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd(?:\?|$) script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-rcmd.js, requires-body = false, timeout = 10, tag = TabulaBili Web推荐清洗, argument = [{mode}]
 
 # 指纹采集（排除 feed/rcmd）
-http-request ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net|api\.bilibili\.com)\/(?!x\/v2\/feed\/index|x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd) script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-capture.js, requires-body = false, timeout = 5, tag = TabulaBili指纹采集
+http-request ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net|api\.bilibili\.com)\/(?!x\/v2\/feed\/index(?:\?|$)|x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd(?:\?|$)) script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-capture.js, requires-body = false, timeout = 5, tag = TabulaBili指纹采集
 
 # 风控探针：被动读响应，不改 body
-http-response ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net)\/x\/v2\/feed\/index script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-risk.js, requires-body = true, timeout = 10, tag = TabulaBili App风控探针, argument = [{risk_notify},{risk_debug}]
+http-response ^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net)\/x\/v2\/feed\/index(?:\?|$) script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-risk.js, requires-body = true, timeout = 10, tag = TabulaBili App风控探针, argument = [{risk_notify},{risk_debug}]
 
-http-response ^https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-risk.js, requires-body = true, timeout = 10, tag = TabulaBili Web风控探针, argument = [{risk_notify},{risk_debug}]
+http-response ^https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd(?:\?|$) script-path = https://raw.githubusercontent.com/beckyeeky/TabulaBili-Loon/main/scripts/tabulabili-risk.js, requires-body = true, timeout = 10, tag = TabulaBili Web风控探针, argument = [{risk_notify},{risk_debug}]
 
 [MitM]
 hostname = app.bilibili.com, app.biliapi.net, api.bilibili.com

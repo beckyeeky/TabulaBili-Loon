@@ -224,18 +224,19 @@ function extractBuvidFingerprint(cookieStr) {
   const m4 = cookieStr.match(/(?:^|;\s*)buvid4=([^;]+)/i);
   if (m3 && m3[1]) parts.push(`buvid3=${m3[1].trim()}`);
   if (m4 && m4[1]) parts.push(`buvid4=${m4[1].trim()}`);
+  const m = cookieStr.match(/(?:^|;\s*)buvid=([^;]+)/i);
+  if (!m3 && m && m[1]) parts.push(`buvid=${m[1].trim()}`);
   return parts.join("; ");
 }
 
 function resolveFingerprint(currentCookie) {
-  const stored = ($persistentStore.read(STORE_FP) || "").trim();
-  if (stored && /buvid3=/i.test(stored)) return stored;
+  // Prefer this client's fingerprint; never replay unvalidated stored Cookie fields.
   const fromReq = extractBuvidFingerprint(currentCookie);
   if (fromReq) {
     $persistentStore.write(fromReq, STORE_FP);
     return fromReq;
   }
-  return "";
+  return extractBuvidFingerprint($persistentStore.read(STORE_FP) || "");
 }
 
 function shouldScrub(mode) {
@@ -252,11 +253,11 @@ function shouldScrub(mode) {
 }
 
 function isAppFeed(url) {
-  return /https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net)\/x\/v2\/feed\/index/i.test(url);
+  return /^https:\/\/(?:app\.bilibili\.com|app\.biliapi\.net)\/x\/v2\/feed\/index(?:\?|$)/i.test(url);
 }
 
 function isWebRcmd(url) {
-  return /https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd/i.test(
+  return /^https:\/\/api\.bilibili\.com\/x\/web-interface(?:\/wbi)?\/index\/top\/(?:feed\/)?rcmd(?:\?|$)/i.test(
     url
   );
 }
@@ -333,25 +334,17 @@ function deauthAndResignUrl(url) {
   });
 
   const appkey = params.appkey || params.appKey || "";
-  const secret = APP_SECRETS[appkey] || APP_SECRETS["1d8b6e7d45233436"];
+  const secret = APP_SECRETS[appkey];
+  if (!secret) throw new Error("unsupported appkey; request unchanged");
 
   const keys = Object.keys(params).sort();
-  const sorted = keys.map((k) => `${k}=${params[k]}`).join("&");
+  // Sign the encoded query actually sent (not decoded values).
+  const sorted = keys.map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`).join("&");
   const sign = md5(sorted + secret);
   params.sign = sign;
 
   const keys2 = Object.keys(params).sort();
-  // 输出：对 value 做 encodeURIComponent（与多数 B 站脚本一致）
-  const newQuery = keys2
-    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
-    .join("&")
-    .replace(/%20/g, "+");
-
-  // 注意：部分客户端对编码敏感。若异常可回退不编码 key。
-  // 更稳妥：key 不编码、value 保持尽量原样。这里用常见写法：key 原样 + value encode
-  const newQuery2 = keys2.map((k) => `${k}=${encodeURIComponent(params[k])}`).join("&");
-
-  return `${base}?${newQuery2}`;
+  return `${base}?${keys2.map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`).join("&")}`;
 }
 
 (function main() {
@@ -359,6 +352,14 @@ function deauthAndResignUrl(url) {
   const mode = readMode();
   $persistentStore.write(mode, STORE_MODE);
 
+  if ($request.method && $request.method.toUpperCase() !== "GET") {
+    $done({});
+    return;
+  }
+  if (!isAppFeed(url) && !isWebRcmd(url)) {
+    $done({});
+    return;
+  }
   if (!shouldScrub(mode)) {
     console.log(`[TabulaBili] pass mode=${mode}`);
     $done({});
@@ -386,6 +387,9 @@ function deauthAndResignUrl(url) {
       console.log(`[TabulaBili] app feed mode=${mode} resigned`);
     } catch (e) {
       console.log(`[TabulaBili] resign fail: ${e}`);
+      // Fail open atomically: keep both original URL and original headers.
+      $done({});
+      return;
     }
   } else {
     console.log(`[TabulaBili] web rcmd mode=${mode} cookie scrubbed`);
